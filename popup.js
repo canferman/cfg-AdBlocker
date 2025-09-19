@@ -7,8 +7,8 @@ const els = {
   scope: document.getElementById("scope"),
   world: document.getElementById("world"),
   css: document.getElementById("css"),
-  jsFiles: null,
-  safeActions: null,
+  jsFiles: document.getElementById("jsFiles"),
+  safeActions: document.getElementById("safeActions"),
   localJsSelect: document.getElementById("localJsSelect"),
   applyNow: document.getElementById("applyNow"),
   saveRule: document.getElementById("saveRule"),
@@ -26,8 +26,7 @@ let editingRuleId = null;
 init().catch(console.error);
 
 async function init() {
-  // JS alanlarını dinamik ekle (HTML değiştirmeden)
-  injectJsUi();
+  // static alanları kullan
 
   active = await chrome.runtime.sendMessage({ type: "CFG_GET_ACTIVE_TAB_URL" });
   els.urlInfo.textContent = `Aktif sekme: ${active.url || "-"}`;
@@ -46,7 +45,7 @@ async function init() {
   renderLogs();
 
   if (stored.draftRuleCandidate) {
-    els.css.value = (stored.draftRuleCandidate.css || "").trim();
+    els.css.value = stored.draftRuleCandidate.css || "";
     els.world.value = stored.draftRuleCandidate.world || "ISOLATED";
     els.scope.value = stored.draftRuleCandidate.scope || "DOMAIN";
     const sa = stored.draftRuleCandidate.safeActions || {};
@@ -55,31 +54,13 @@ async function init() {
       mergedSa.hide = Array.from(new Set(sa.hide));
     }
     els.safeActions.value = JSON.stringify(mergedSa, null, 2);
-    editingRuleId = null; // taslak yeni kural kabul edilir
+    editingRuleId = null; // taslak modu yeni kural
     await chrome.storage.local.remove("draftRuleCandidate");
   }
 
   els.applyNow.addEventListener("click", onApplyNow);
   els.saveRule.addEventListener("click", onSaveRule);
   els.openOptions.addEventListener("click", () => chrome.runtime.openOptionsPage());
-}
-
-function injectJsUi(){
-  // Inline JS textarea vardı; yerine iki alan ekleyelim: jsFiles ve safeActions
-  const jsLabel = document.createElement("label");
-  jsLabel.textContent = "JS Files (paket içi, virgülle)";
-  const jsInput = document.createElement("input");
-  jsInput.type = "text"; jsInput.id = "jsFiles"; jsInput.placeholder = "examples/example.js";
-  jsLabel.appendChild(jsInput);
-  els.css.parentElement.insertAdjacentElement('afterend', jsLabel);
-  els.jsFiles = jsInput;
-
-  const saLabel = document.createElement("label");
-  saLabel.innerHTML = "Safe Actions (JSON)";
-  const saText = document.createElement("textarea"); saText.id = "safeActions"; saText.placeholder = '{"hide":[".ad"]}';
-  saLabel.appendChild(saText);
-  jsLabel.insertAdjacentElement('afterend', saLabel);
-  els.safeActions = saText;
 }
 
 function refreshLocalJsSelect() {
