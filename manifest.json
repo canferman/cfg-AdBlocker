@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "cfg-AdBlocker (Local)",
-  "version": "1.0.0",
-  "description": "Belirli URL desenlerine özel CSS/JS enjekte eden yerel araç.",
-  "permissions": ["storage", "scripting", "activeTab", "contextMenus"],
+  "name": "cfg-AdBlocker",
+  "version": "1.1.0",
+  "description": "URL desenlerine göre CSS/JS ve varsayılan Google Ads engelleme (DNR).",
+  "permissions": ["storage", "scripting", "activeTab", "contextMenus", "declarativeNetRequest"],
   "host_permissions": ["<all_urls>"],
   "background": { "service_worker": "background.js" },
   "action": { "default_popup": "popup.html", "default_icon": {
@@ -17,6 +17,11 @@
     "32": "icons/icon32.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
+  },
+  "declarative_net_request": {
+    "rule_resources": [
+      { "id": "static-rules", "enabled": true, "path": "rules.json" }
+    ]
   },
   "options_page": "options.html",
   "content_scripts": [

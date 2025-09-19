@@ -48,7 +48,7 @@ async function init(){
 
 async function loadState(){
   const stored = await chrome.storage.local.get([STORAGE_KEY, "draftRuleCandidate"]);
-  state = stored[STORAGE_KEY] || { enabled:true, safeMode:false, version:1, rules:[], allowlist:[], blocklist:[], localJsLibrary:[] };
+  state = stored[STORAGE_KEY] || { enabled:true, safeMode:false, version:2, rules:[], allowlist:[], blocklist:[], localJsLibrary:[] };
   draftRuleCandidate = stored.draftRuleCandidate || null;
   rules = Array.isArray(state.rules) ? state.rules.slice() : [];
   localJsLibrary = Array.isArray(state.localJsLibrary) ? state.localJsLibrary.slice() : [];
@@ -122,7 +122,7 @@ async function pickAndImportLocalJs(){
       lastImportedAt: Date.now(),
       size: file.size,
       hash,
-      handleId: null, // Chrome storage'a handle saklamıyoruz (uyumluluk)
+      handleId: null,
       content: text
     };
     localJsLibrary.push(item);
@@ -170,6 +170,7 @@ function renderRules(){
   for (const r of filtered){
     const card = document.createElement("div");
     card.className = "card";
+    const inlineJsWarn = r.__inlineJsDeprecated ? `<div class="small" style="color:#fca5a5;">Uyarı: Bu kuralda eski inline JS var, artık uygulanmayacak.</div>` : "";
     card.innerHTML = `
       <div class="row" style="justify-content:space-between; align-items:center;">
         <div><strong>${escapeHtml(r.name)}</strong> <span class="badge">${r.world}</span> <span class="badge">p=${r.priority??0}</span></div>
@@ -180,6 +181,7 @@ function renderRules(){
         </div>
       </div>
       <div class="small">${escapeHtml(r.pattern)}</div>
+      ${inlineJsWarn}
     `;
     card.addEventListener("click", async (ev)=>{
       const btn = ev.target.closest("button, input[type=checkbox]"); if(!btn) return;
@@ -214,6 +216,7 @@ function openRuleEditor(rule){
 }
 
 function ruleFormHtml(r){
+  const jsReadonly = (r.__inlineJsDeprecated || (r.js && r.js.trim())) ? `<div class="small" style="color:#fca5a5;">Inline JS kullanım dışı. İçerik yalnız görüntülenir.</div>` : "";
   return `
   <div class="col">
     <h4>Kural Düzenle</h4>
@@ -252,11 +255,16 @@ function ruleFormHtml(r){
     <label>CSS Files (virgülle)
       <input type="text" id="f_cssFiles" value="${escapeAttr((r.cssFiles||[]).join(", "))}">
     </label>
-    <label>Inline JS
-      <textarea id="f_js">${escapeText(r.js||"")}</textarea>
-    </label>
-    <label>JS Files (virgülle)
+    <div class="panel">
+      <div><strong>Inline JS (deprecated)</strong></div>
+      ${jsReadonly}
+      <textarea id="f_js" readonly>${escapeText(r.js||"")}</textarea>
+    </div>
+    <label>JS Files (paket içi, virgülle)
       <input type="text" id="f_jsFiles" value="${escapeAttr((r.jsFiles||[]).join(", "))}">
+    </label>
+    <label>Safe Actions (JSON)
+      <textarea id="f_safeActions">${escapeText(JSON.stringify(r.safeActions||{}, null, 2))}</textarea>
     </label>
     <label>Yerel JS (kütüphaneden seç)
       <select id="f_localJs" multiple>${localJsOptions(r.localJs||[])}</select>
@@ -275,6 +283,8 @@ function bindRuleForm(orig){
   const getChecked = (id)=> document.getElementById(id).checked;
   document.getElementById("f_cancel").onclick = ()=> els.ruleForm.style.display = "none";
   document.getElementById("f_save").onclick = async ()=>{
+    let parsedSafe = {};
+    try { parsedSafe = JSON.parse(getVal("f_safeActions")||"{}"); } catch { alert("Safe Actions JSON geçersiz"); return; }
     const updated = {
       id: orig.id || cryptoId(),
       name: getVal("f_name"),
@@ -287,13 +297,14 @@ function bindRuleForm(orig){
       world: getVal("f_world"),
       css: document.getElementById("f_css").value,
       cssFiles: splitCsv(document.getElementById("f_cssFiles").value),
-      js: document.getElementById("f_js").value,
+      js: orig.js || "", // inline JS korunur ama kullanılmaz
       jsFiles: splitCsv(document.getElementById("f_jsFiles").value),
       localJs: getSelectedLocalJsFromForm(),
+      safeActions: parsedSafe,
       safeMode: getChecked("f_safeMode"),
-      notes: document.getElementById("f_notes").value
+      notes: document.getElementById("f_notes").value,
+      __inlineJsDeprecated: orig.__inlineJsDeprecated || (orig.js && orig.js.trim()? true : false)
     };
-    if (!validateRule(updated)) { alert("Geçersiz kural alanları."); return; }
     const idx = rules.findIndex(x=> x.id === updated.id);
     if (idx>=0) rules[idx] = updated; else rules.push(updated);
     await saveRules();
@@ -326,7 +337,7 @@ async function saveRules(){
 }
 
 function defaultRule(){
-  return { id: cryptoId(), name: "Yeni Kural", enabled: true, pattern: "*://*/*", excludePatterns: [], scope: "DOMAIN", priority: 100, runAt: "document_start", world: "ISOLATED", css: "", cssFiles: [], js: "", jsFiles: [], localJs: [], safeMode: false, notes: "" };
+  return { id: cryptoId(), name: "Yeni Kural", enabled: true, pattern: "*://*/*", excludePatterns: [], scope: "DOMAIN", priority: 100, runAt: "document_start", world: "ISOLATED", css: "", cssFiles: [], js: "", jsFiles: [], localJs: [], safeActions: {}, safeMode: false, notes: "" };
 }
 
 function splitCsv(s){ return (s||"").split(",").map(x=>x.trim()).filter(Boolean); }
@@ -336,73 +347,11 @@ function escapeAttr(s){ return (s||"").replace(/"/g, '&quot;'); }
 function escapeText(s){ return (s||"").replace(/</g, '&lt;'); }
 function cryptoId(){ const a=new Uint8Array(8); crypto.getRandomValues(a); return Array.from(a).map(b=>b.toString(16).padStart(2,'0')).join(''); }
 
-function validateRule(r){
-  if (!r.name || !r.pattern) return false;
-  if (!["DOMAIN","URL","PATTERN"].includes(r.scope)) return false;
-  if (!["document_start","document_end","document_idle"].includes(r.runAt)) return false;
-  if (!["ISOLATED","MAIN"].includes(r.world)) return false;
-  return true;
-}
-
-function bindImportExport(){
-  els.exportJson.onclick = async ()=>{
-    const data = await chrome.storage.local.get(null);
-    const blob = new Blob([JSON.stringify(data,null,2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = "cfg-adblocker-export.json"; a.click();
-    URL.revokeObjectURL(url);
-  };
-  els.importJson.onclick = ()=> els.importFile.click();
-  els.importFile.onchange = async ()=>{
-    const file = els.importFile.files?.[0]; if(!file) return;
-    try {
-      const text = await file.text();
-      const obj = JSON.parse(text);
-      // Basit doğrulama
-      if (!obj || typeof obj !== 'object') throw new Error('Geçersiz JSON');
-      if (!obj[STORAGE_KEY]) throw new Error('Beklenen kök anahtar yok: '+STORAGE_KEY);
-      await chrome.storage.local.set(obj);
-      alert("İçe aktarıldı. Sayfa yenileniyor.");
-      location.reload();
-    } catch (e) { alert("Hata: "+String(e)); }
-  };
-}
-
-function bindPreview(){
-  els.previewBtn.onclick = ()=>{
-    const url = els.previewUrl.value.trim(); if(!url) return;
-    const matched = rules.filter(r=> r.enabled && urlMatches(url, r.pattern) && !shouldSkipByExclude(url, r.excludePatterns));
-    els.previewList.innerHTML = "";
-    for (const r of matched){
-      const div = document.createElement("div");
-      div.className = "card";
-      div.innerHTML = `<strong>${escapeHtml(r.name)}</strong> <span class="badge">${r.world}</span> <div class="small">${escapeHtml(r.pattern)}</div>`;
-      els.previewList.appendChild(div);
-    }
-  };
-}
-
-function bindDraft(){
-  if (!draftRuleCandidate) return;
-  els.draftPanel.style.display = "block";
-  els.draftInfo.textContent = `Taslak: ${draftRuleCandidate.name||"(isimsiz)"} — ${draftRuleCandidate.pattern||"*"}`;
-  els.draftEdit.onclick = ()=> openRuleEditor(draftRuleCandidate);
-  els.draftDismiss.onclick = async ()=>{ await chrome.storage.local.remove("draftRuleCandidate"); els.draftPanel.style.display = "none"; };
-}
-
 function wildcardToRegExp(pattern){
   const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
   return new RegExp("^" + escaped.replace(/\*/g, ".*") + "$");
 }
-function urlMatches(url, pattern){
-  try {
-    const patterns = pattern.includes("://*.") || pattern.includes("://*.")
-      ? [pattern, pattern.replace("://*.", "://").replace("://*.", "://").replace("://*.", "://")] 
-      : [pattern];
-    for (const p of patterns){ if (wildcardToRegExp(p).test(url)) return true; }
-    return false;
-  } catch { return false; }
-}
+function urlMatches(url, pattern){ try { return wildcardToRegExp(pattern).test(url); } catch { return false; } }
 function shouldSkipByExclude(url, excludePatterns){ if(!Array.isArray(excludePatterns)) return false; return excludePatterns.some(p=> urlMatches(url,p)); }
 
 async function sha256base16(text){

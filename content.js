@@ -2,9 +2,9 @@
 
 // cfg-AdBlocker content script
 // - Kuralları storage'dan alır ve URL'ye göre uygular
-// - CSS/JS enjeksiyon (inline, dosya, localJs)
-// - SPA URL değişimi izleme
-// - Element picker overlay (context menü)
+// - CSS/JS enjeksiyon (css inline + cssFiles, jsFiles), inline JS KALDIRILDI
+// - Safe Actions (hide/remove/click/setAttr/waitFor)
+// - SPA URL değişimi izleme + kozmetik temizlik (Google Ads overlay/iframe)
 
 const STORAGE_KEY = "cfgState";
 const PREFIX = "[cfg-AdBlocker]";
@@ -16,12 +16,17 @@ init().catch((e) => console.error(PREFIX, "init error", e));
 
 async function init() {
   try {
+    addCosmeticCleaner();
     await applyForCurrentUrl("document_start");
     setupSpaWatcher();
     chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       if (msg?.type === "CFG_PICKER_START") {
         startElementPicker();
         sendResponse({ ok: true });
+        return true;
+      }
+      if (msg?.type === "CFG_APPLY_SAFE_ACTIONS_NOW") {
+        runSafeActions(msg.safeActions).then(()=>sendResponse({ok:true})).catch(e=>sendResponse({ok:false,error:String(e)}));
         return true;
       }
       return false;
@@ -44,7 +49,7 @@ function wildcardToRegExp(pattern) {
 function urlMatches(url, pattern) {
   try {
     const patterns = pattern.includes("://*.") || pattern.includes("://*.")
-      ? [pattern, pattern.replace("://*.", "://").replace("://*.", "://").replace("://*.", "://")] // güvenli replace
+      ? [pattern, pattern.replace("://*.", "://").replace("://*.", "://").replace("://*.", "://")] 
       : [pattern];
     for (const p of patterns) {
       if (wildcardToRegExp(p).test(url)) return true;
@@ -69,8 +74,6 @@ async function applyForCurrentUrl(trigger) {
   // blocklist/allowlist kontrolü
   const inBlock = Array.isArray(state.blocklist) && state.blocklist.some((p) => urlMatches(url, p));
   if (inBlock) return;
-  const inAllow = Array.isArray(state.allowlist) && state.allowlist.some((p) => urlMatches(url, p));
-  // allowlist olsa da kuralları uygularız; sadece blocklist engeller
 
   const rules = Array.isArray(state.rules) ? state.rules.slice() : [];
   rules.sort((a, b) => (a?.priority ?? 0) - (b?.priority ?? 0));
@@ -146,57 +149,41 @@ async function applyRule(rule, url, safeMode) {
     }
   }
 
-  // JS
-  const codeParts = [];
-  if (rule.js && rule.js.trim()) codeParts.push(rule.js);
-  if (Array.isArray(rule.localJs)) {
-    for (const lj of rule.localJs) {
-      if (lj?.content) codeParts.push(String(lj.content));
-    }
-  }
-
-  // jsFiles: ISOLATED için fetch edip eval; MAIN için <script src>
-  if (Array.isArray(rule.jsFiles)) {
-    for (const f of rule.jsFiles) {
-      try {
-        if (rule.world === "MAIN") {
-          const s = document.createElement("script");
-          s.src = chrome.runtime.getURL(f);
-          s.setAttribute("data-cfg-rule", rule.id);
-          (document.head || document.documentElement).appendChild(s);
-          s.onload = () => s.remove();
-          await addLog({ ts: Date.now(), url, ruleId: rule.id, name: rule.name, action: "js-file-main", meta: f });
-        } else {
-          const resp = await fetch(chrome.runtime.getURL(f));
-          const txt = await resp.text();
-          codeParts.push(txt);
-        }
-      } catch (e) {
-        console.error(PREFIX, "js file error", f, e);
-      }
-    }
-  }
-
-  if (codeParts.length) {
+  // JS files (paket içi)
+  if (Array.isArray(rule.jsFiles) && rule.jsFiles.length) {
     try {
-      const code = codeParts.join("\n\n");
-      if (rule.world === "MAIN") {
-        const s = document.createElement("script");
-        s.textContent = `(function(){\ntry {\n${code}\n} catch(e){console.error('${PREFIX} js inline main error', e);}\n})();`;
-        s.setAttribute("data-cfg-rule", rule.id);
-        (document.head || document.documentElement).appendChild(s);
-        s.remove();
-        await addLog({ ts: Date.now(), url, ruleId: rule.id, name: rule.name, action: "js-inline-main" });
-      } else {
-        try {
-          (new Function(code))();
-          await addLog({ ts: Date.now(), url, ruleId: rule.id, name: rule.name, action: "js-inline-iso" });
-        } catch (e) {
-          console.error(PREFIX, "js inline iso error", e);
-        }
-      }
+      await chrome.runtime.sendMessage({ type: "CFG_EXECUTE_JS_FILES", files: rule.jsFiles, world: rule.world || "ISOLATED" });
+      await addLog({ ts: Date.now(), url, ruleId: rule.id, name: rule.name, action: "js-files" });
     } catch (e) {
-      console.error(PREFIX, "js combine error", e);
+      console.error(PREFIX, "js files exec error", e);
+    }
+  }
+
+  // Safe Actions
+  if (rule.safeActions && typeof rule.safeActions === 'object') {
+    try {
+      await runSafeActions(rule.safeActions);
+      await addLog({ ts: Date.now(), url, ruleId: rule.id, name: rule.name, action: "safe-actions" });
+    } catch (e) {
+      console.error(PREFIX, "safe actions error", e);
+    }
+  }
+}
+
+async function runSafeActions(safe){
+  const sleep = (ms)=> new Promise(r=> setTimeout(r, ms));
+  const qAll = (sel)=> Array.from(document.querySelectorAll(sel));
+  const isStrArr = (a)=> Array.isArray(a) && a.every(x=> typeof x === 'string');
+
+  if (isStrArr(safe.hide)) safe.hide.forEach(sel=> qAll(sel).forEach(el=> el.style.setProperty('display','none','important')));
+  if (isStrArr(safe.remove)) safe.remove.forEach(sel=> qAll(sel).forEach(el=> el.remove()));
+  if (isStrArr(safe.click)) safe.click.forEach(sel=> qAll(sel).forEach(el=> el.click?.()));
+  if (Array.isArray(safe.setAttr)) safe.setAttr.forEach(x=> qAll(x.selector||'').forEach(el=> el.setAttribute(x.name||'', x.value||'')));
+  if (Array.isArray(safe.waitFor)){
+    for (const w of safe.waitFor){
+      const timeout = Math.max(0, Number(w.timeoutMs||3000));
+      const start = performance.now();
+      while (performance.now() - start < timeout){ if (document.querySelector(w.selector)) break; await sleep(50); }
     }
   }
 }
@@ -234,7 +221,56 @@ async function addLog(entry) {
   } catch {}
 }
 
-// ===== Element Picker =====
+// ===== Kozmetik Temizlik (Google Ads overlay/iframe) =====
+function addCosmeticCleaner(){
+  const LOG = (...a)=> console.debug(PREFIX, ...a);
+  const INS = 'ins[id^="gpt_unit_"]';
+  const OVERLAY = [
+    '[class*="overlay"]','[id*="overlay"]',
+    '[class*="interstitial"]','[id*="interstitial"]',
+    '[class*="modal"]','[id*="modal"]',
+    '[class*="backdrop"]','[id*="backdrop"]',
+    '[role="dialog"]','[aria-modal="true"]'
+  ].join(",");
+  const isEl = (n)=> n && n.nodeType === 1;
+  const findWrap = (el)=> el.closest(OVERLAY) || el.closest('*[style*="z-index"]') || el;
+  const remove = (n)=> { try{ isEl(n) && n.remove(); return true; } catch { return false; } };
+  const unlock = ()=>{
+    const b=document.body, h=document.documentElement;
+    if (b){ b.style.overflow="visible"; b.style.position=""; b.style.height=""; b.style.pointerEvents=""; b.style.userSelect=""; }
+    if (h){ h.style.overflow="visible"; }
+  };
+  const purge = (root=document.documentElement)=>{
+    if(!isEl(root)) return;
+    let hit=false;
+    if (root.matches?.(INS)) { if (remove(findWrap(root))||remove(root)) hit=true; }
+    root.querySelectorAll?.(INS).forEach(ins=>{ if (remove(findWrap(ins))||remove(ins)) hit=true; });
+    root.querySelectorAll?.('iframe[src*="googlesyndication"],iframe[src*="doubleclick"],iframe[id*="google_ads_iframe"]').forEach(ifr=>{
+      if(remove(ifr.closest(OVERLAY)||ifr)) hit=true;
+    });
+    if (hit){ unlock(); LOG("ad overlay removed"); }
+  };
+  purge();
+  new MutationObserver((muts)=>{
+    for(const m of muts){
+      m.addedNodes?.forEach(n=>purge(n));
+      if (m.type==="attributes" && m.target.matches?.(INS)) purge(m.target);
+    }
+  }).observe(document.documentElement,{ childList:true, subtree:true, attributes:true, attributeFilter:["id","class","style"] });
+  const _attachShadow = Element.prototype.attachShadow;
+  if (_attachShadow && !_attachShadow.__cfgHooked){
+    Element.prototype.attachShadow = function(init){
+      const s = _attachShadow.call(this, init);
+      new MutationObserver((muts)=>muts.forEach(m=>m.addedNodes?.forEach(n=>purge(n))))
+        .observe(s,{ childList:true, subtree:true });
+      return s;
+    };
+    Element.prototype.attachShadow.__cfgHooked = true;
+  }
+  setInterval(()=>purge(),3000);
+}
+
+// ===== Element Picker (değişmedi) =====
 let pickerActive = false;
 let pickerOverlay = null;
 let pickerLastEl = null;

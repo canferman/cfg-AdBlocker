@@ -59,21 +59,22 @@
           "world": { "type": "string", "enum": ["ISOLATED", "MAIN"], "default": "ISOLATED" },
           "css": { "type": "string" },
           "cssFiles": { "type": "array", "items": { "type": "string" } },
-          "js": { "type": "string" },
           "jsFiles": { "type": "array", "items": { "type": "string" } },
-          "localJs": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "required": ["title", "lastImportedAt", "size", "hash", "content"],
-              "properties": {
-                "title": { "type": "string" },
-                "lastImportedAt": { "type": "number" },
-                "size": { "type": "number" },
-                "hash": { "type": "string" },
-                "handleId": { "type": "string" },
-                "content": { "type": "string" }
-              }
+          "safeActions": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "hide": { "type": "array", "items": { "type": "string" } },
+              "remove": { "type": "array", "items": { "type": "string" } },
+              "click": { "type": "array", "items": { "type": "string" } },
+              "setAttr": { "type": "array", "items": {
+                "type": "object",
+                "properties": { "selector": { "type": "string" }, "name": { "type": "string" }, "value": { "type": "string" } }
+              } },
+              "waitFor": { "type": "array", "items": {
+                "type": "object",
+                "properties": { "selector": { "type": "string" }, "timeoutMs": { "type": "integer" } }
+              } }
             }
           },
           "safeMode": { "type": "boolean" },

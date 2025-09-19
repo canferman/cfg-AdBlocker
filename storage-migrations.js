@@ -12,11 +12,15 @@ async function migrateStorageIfNeeded() {
     const currentVersion = typeof cfgState.version === "number" ? cfgState.version : 0;
     let state = { ...cfgState };
 
-    // Örnek migrasyon kalıbı:
-    // if (currentVersion === 1) {
-    //   state.version = 2;
-    //   state.rules = Array.isArray(state.rules) ? state.rules : [];
-    // }
+    if (currentVersion === 1) {
+      state.version = 2;
+      // inline js alanları varsa uyarı bayrağı ekleyelim
+      const rules = Array.isArray(state.rules) ? state.rules.map(r=> ({
+        ...r,
+        __inlineJsDeprecated: (typeof r.js === 'string' && r.js.trim().length>0) ? true : false
+      })) : [];
+      state.rules = rules;
+    }
 
     if (state.version !== currentVersion) {
       await chrome.storage.local.set({ [STORAGE_KEY]: state });

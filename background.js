@@ -5,7 +5,7 @@ try { importScripts("storage-migrations.js"); if (self.migrateStorageIfNeeded) {
 // cfg-AdBlocker background (service worker)
 // - onInstalled: varsayılan state
 // - contextMenus: "Bu öğeyi gizle (selector üret)"
-// - messaging: Hemen uygula, picker sonucu, log ekleme
+// - messaging: Hemen uygula, picker sonucu, log ekleme, jsFiles çalıştırma, safeActions uygulatma
 
 const MENU_PICKER_ID = "cfg-hide-element";
 const STORAGE_KEY = "cfgState";
@@ -18,7 +18,7 @@ chrome.runtime.onInstalled.addListener(async () => {
       const initial = {
         enabled: true,
         safeMode: false,
-        version: 1,
+        version: 2,
         rules: [],
         allowlist: [],
         blocklist: [],
@@ -50,7 +50,6 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   try {
     await chrome.tabs.sendMessage(tab.id, { type: "CFG_PICKER_START" });
   } catch (err) {
-    // Content script yüklü değilse kullanıcı henüz sayfayı yenilememiş olabilir
     console.warn("[cfg-AdBlocker] Picker başlatılamadı, content yok mu?", err);
   }
 });
@@ -71,7 +70,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
       if (msg?.type === "CFG_PICKER_RESULT") {
         const { selector, url } = msg;
-        // Taslak kural: domain kapsamı ve selector'i gizleyen CSS
         const pattern = deriveDomainPattern(url);
         const draftRuleCandidate = {
           id: cryptoRandomId(),
@@ -85,8 +83,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           world: "ISOLATED",
           css: `${selector} { display: none !important; }`,
           cssFiles: [],
-          js: "",
           jsFiles: [],
+          safeActions: { hide: [selector] },
           localJs: [],
           safeMode: false,
           notes: "Context menü ile oluşturulan seçici"
@@ -101,6 +99,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         const { tabId, rule } = msg;
         await applyRuleNow(tabId, rule);
         sendResponse({ ok: true });
+        return;
+      }
+
+      if (msg?.type === "CFG_EXECUTE_JS_FILES") {
+        const { files, world } = msg;
+        if (sender.tab?.id) {
+          await chrome.scripting.executeScript({ target: { tabId: sender.tab.id }, world: world === "MAIN" ? "MAIN" : "ISOLATED", files });
+          sendResponse({ ok: true });
+        } else {
+          sendResponse({ ok: false, error: "No sender tab" });
+        }
         return;
       }
 
@@ -134,16 +143,7 @@ async function applyRuleNow(tabId, rule) {
       }
     }
 
-    const codeParts = [];
-    if (rule.js && rule.js.trim()) codeParts.push(rule.js);
-    if (Array.isArray(rule.localJs)) {
-      for (const lj of rule.localJs) {
-        if (lj?.content) codeParts.push(String(lj.content));
-      }
-    }
-
     if (Array.isArray(rule.jsFiles) && rule.jsFiles.length) {
-      // Uzantı içi dosyaları direkt çalıştır
       await chrome.scripting.executeScript({
         target: { tabId },
         world: rule.world === "MAIN" ? "MAIN" : "ISOLATED",
@@ -151,24 +151,12 @@ async function applyRuleNow(tabId, rule) {
       });
     }
 
-    if (codeParts.length) {
-      const bundle = wrapInIIFE(codeParts.join("\n\n"));
-      await chrome.scripting.executeScript({
-        target: { tabId },
-        world: rule.world === "MAIN" ? "MAIN" : "ISOLATED",
-        func: (code) => {
-          try { (new Function(code))(); } catch (e) { console.error("[cfg-AdBlocker] applyNow error", e); }
-        },
-        args: [bundle]
-      });
+    if (rule.safeActions && typeof rule.safeActions === 'object') {
+      await chrome.tabs.sendMessage(tabId, { type: "CFG_APPLY_SAFE_ACTIONS_NOW", safeActions: rule.safeActions });
     }
   } catch (err) {
     console.error("[cfg-AdBlocker] applyRuleNow error", err);
   }
-}
-
-function wrapInIIFE(code) {
-  return `(function(){\ntry {\n${code}\n} catch(e){ console.error('[cfg-AdBlocker] applyNow error', e); }\n})();`;
 }
 
 function deriveDomainPattern(url) {

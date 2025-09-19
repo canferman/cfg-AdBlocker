@@ -7,7 +7,8 @@ const els = {
   scope: document.getElementById("scope"),
   world: document.getElementById("world"),
   css: document.getElementById("css"),
-  js: document.getElementById("js"),
+  jsFiles: null,
+  safeActions: null,
   localJsSelect: document.getElementById("localJsSelect"),
   applyNow: document.getElementById("applyNow"),
   saveRule: document.getElementById("saveRule"),
@@ -25,6 +26,9 @@ let editingRuleId = null;
 init().catch(console.error);
 
 async function init() {
+  // JS alanlarını dinamik ekle (HTML değiştirmeden)
+  injectJsUi();
+
   active = await chrome.runtime.sendMessage({ type: "CFG_GET_ACTIVE_TAB_URL" });
   els.urlInfo.textContent = `Aktif sekme: ${active.url || "-"}`;
 
@@ -33,7 +37,6 @@ async function init() {
 
   refreshLocalJsSelect();
 
-  // Eğer taslak yoksa, mevcut eşleşen ilk kuralı forma doldur
   if (!stored.draftRuleCandidate) {
     const matched = getMatchedRules(active.url, state.rules);
     if (matched.length) prefillFromRule(matched[0]);
@@ -42,19 +45,35 @@ async function init() {
   renderMatches();
   renderLogs();
 
-  // Draft kural varsa alanları doldur
   if (stored.draftRuleCandidate) {
     els.css.value = stored.draftRuleCandidate.css || "";
-    els.js.value = stored.draftRuleCandidate.js || "";
     els.world.value = stored.draftRuleCandidate.world || "ISOLATED";
     els.scope.value = stored.draftRuleCandidate.scope || "DOMAIN";
-    editingRuleId = null; // taslak modu yeni kural
+    editingRuleId = null;
     await chrome.storage.local.remove("draftRuleCandidate");
   }
 
   els.applyNow.addEventListener("click", onApplyNow);
   els.saveRule.addEventListener("click", onSaveRule);
   els.openOptions.addEventListener("click", () => chrome.runtime.openOptionsPage());
+}
+
+function injectJsUi(){
+  // Inline JS textarea vardı; yerine iki alan ekleyelim: jsFiles ve safeActions
+  const jsLabel = document.createElement("label");
+  jsLabel.textContent = "JS Files (paket içi, virgülle)";
+  const jsInput = document.createElement("input");
+  jsInput.type = "text"; jsInput.id = "jsFiles"; jsInput.placeholder = "examples/example.js";
+  jsLabel.appendChild(jsInput);
+  els.css.parentElement.insertAdjacentElement('afterend', jsLabel);
+  els.jsFiles = jsInput;
+
+  const saLabel = document.createElement("label");
+  saLabel.innerHTML = "Safe Actions (JSON)";
+  const saText = document.createElement("textarea"); saText.id = "safeActions"; saText.placeholder = '{"hide":[".ad"]}';
+  saLabel.appendChild(saText);
+  jsLabel.insertAdjacentElement('afterend', saLabel);
+  els.safeActions = saText;
 }
 
 function refreshLocalJsSelect() {
@@ -91,9 +110,10 @@ function getMatchedRules(url, rules) {
 function prefillFromRule(rule){
   editingRuleId = rule.id;
   els.css.value = rule.css || "";
-  els.js.value = rule.js || "";
   els.world.value = rule.world || "ISOLATED";
   els.scope.value = rule.scope || "DOMAIN";
+  els.jsFiles.value = (rule.jsFiles||[]).join(", ");
+  els.safeActions.value = JSON.stringify(rule.safeActions||{}, null, 2);
   setMsg("Mevcut kural yüklendi.");
 }
 
@@ -162,46 +182,27 @@ async function onSaveRule() {
 }
 
 function buildRuleDraft() {
-  if (editingRuleId) {
-    const base = getEditingBaseRule();
-    const name = base?.name || "Popup kuralı";
-    return {
-      id: base?.id || cryptoId(),
-      name,
-      enabled: base?.enabled !== false,
-      pattern: base?.pattern || getPatternForScope(active.url, els.scope.value),
-      excludePatterns: Array.isArray(base?.excludePatterns) ? base.excludePatterns : [],
-      scope: base?.scope || els.scope.value,
-      priority: typeof base?.priority === 'number' ? base.priority : 100,
-      runAt: base?.runAt || "document_start",
-      world: els.world.value,
-      css: els.css.value,
-      cssFiles: Array.isArray(base?.cssFiles) ? base.cssFiles : [],
-      js: els.js.value,
-      jsFiles: Array.isArray(base?.jsFiles) ? base.jsFiles : [],
-      localJs: getSelectedLocalJs(),
-      safeMode: !!base?.safeMode,
-      notes: base?.notes || ""
-    };
-  }
-  const pattern = getPatternForScope(active.url, els.scope.value);
+  const base = editingRuleId ? getEditingBaseRule() : null;
+  const pattern = base?.pattern || getPatternForScope(active.url, els.scope.value);
+  let parsedSafe = {};
+  try { parsedSafe = JSON.parse(els.safeActions.value||"{}"); } catch { parsedSafe = {}; }
   return {
-    id: cryptoId(),
-    name: "Popup kuralı",
-    enabled: true,
+    id: base?.id || cryptoId(),
+    name: base?.name || "Popup kuralı",
+    enabled: base?.enabled !== false,
     pattern,
-    excludePatterns: [],
-    scope: els.scope.value,
-    priority: 100,
-    runAt: "document_start",
+    excludePatterns: Array.isArray(base?.excludePatterns) ? base.excludePatterns : [],
+    scope: base?.scope || els.scope.value,
+    priority: typeof base?.priority === 'number' ? base.priority : 100,
+    runAt: base?.runAt || "document_start",
     world: els.world.value,
     css: els.css.value,
-    cssFiles: [],
-    js: els.js.value,
-    jsFiles: [],
+    cssFiles: Array.isArray(base?.cssFiles) ? base.cssFiles : [],
+    jsFiles: (els.jsFiles.value||"").split(",").map(s=>s.trim()).filter(Boolean),
     localJs: getSelectedLocalJs(),
-    safeMode: false,
-    notes: "Popup üzerinden oluşturuldu"
+    safeActions: parsedSafe,
+    safeMode: !!base?.safeMode,
+    notes: base?.notes || ""
   };
 }
 
@@ -225,20 +226,27 @@ function renderMatches() {
     card.innerHTML = `
       <div class="row" style="justify-content:space-between;align-items:center;">
         <div><strong>${escapeHtml(r.name)}</strong> <span class="badge">${r.world}</span></div>
-        <label class="small">Açık <input type="checkbox" ${r.enabled?"checked":""}></label>
+        <div class="row">
+          <button data-act="load" data-id="${r.id}">Yükle</button>
+          <label class="small" style="margin-left:8px;">Açık <input type="checkbox" ${r.enabled?"checked":""} data-act="toggle" data-id="${r.id}"></label>
+        </div>
       </div>
       <div class="small">${escapeHtml(r.pattern)}</div>
     `;
-    const toggle = card.querySelector("input[type=checkbox]");
-    toggle.addEventListener("change", async () => {
+    card.addEventListener("click", async (ev)=>{
+      const btn = ev.target.closest("button, input[type=checkbox]"); if(!btn) return;
+      const id = btn.getAttribute("data-id");
+      const act = btn.getAttribute("data-act");
       const { [STORAGE_KEY]: st } = await chrome.storage.local.get(STORAGE_KEY);
       const list = Array.isArray(st?.rules) ? st.rules.slice() : [];
-      const idx = list.findIndex(x => x.id === r.id);
-      if (idx >= 0) {
-        list[idx].enabled = toggle.checked;
+      const idx = list.findIndex(x=> x.id === id);
+      if (act === "toggle" && idx>=0){
+        list[idx].enabled = btn.checked;
         await chrome.storage.local.set({ [STORAGE_KEY]: { ...st, rules: list } });
-        state.rules = list;
-        renderMatches();
+        state.rules = list; renderMatches();
+      }
+      if (act === "load" && idx>=0){
+        prefillFromRule(list[idx]);
       }
     });
     els.matches.appendChild(card);
@@ -256,4 +264,4 @@ function renderLogs(){
   }
 }
 
-function escapeHtml(s){ return (s||"").replace(/[&<>"]/g, c=> ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+function escapeHtml(s){ return (s||"").replace(/[&<>"]/g, c=> ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c])); }
