@@ -6,55 +6,63 @@
   <title>cfg-AdBlocker</title>
   <link rel="stylesheet" href="assets/ui.css">
   <style>
-    body { width: 360px; }
-    textarea { height: 80px; }
+    body { width: 380px; }
+    textarea { min-height: 90px; }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="panel">
-      <div class="col">
-        <div class="small" id="urlInfo">Aktif sekme: -</div>
-        <label>Scope
-          <select id="scope">
-            <option value="DOMAIN">DOMAIN</option>
-            <option value="URL">URL</option>
-            <option value="PATTERN">PATTERN</option>
-          </select>
+      <div class="grid-2">
+        <div class="col">
+          <div class="small" id="urlInfo">Aktif sekme: -</div>
+          <label class="full">Scope
+            <select id="scope" class="full">
+              <option value="DOMAIN">DOMAIN</option>
+              <option value="URL">URL</option>
+              <option value="PATTERN">PATTERN</option>
+            </select>
+          </label>
+        </div>
+        <div class="col">
+          <div class="section-title">Çalışma Dünyası</div>
+          <label class="full">World
+            <select id="world" class="full">
+              <option value="ISOLATED">ISOLATED</option>
+              <option value="MAIN">MAIN</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      <div class="grid-1" style="margin-top:10px;">
+        <label class="full">Inline CSS
+          <textarea id="css" class="full"></textarea>
         </label>
-        <label>World
-          <select id="world">
-            <option value="ISOLATED">ISOLATED</option>
-            <option value="MAIN">MAIN</option>
-          </select>
+        <label class="full">JS Files (paket içi, virgülle)
+          <input id="jsFiles" type="text" class="full" placeholder="examples/example.js">
         </label>
-        <label>Inline CSS
-          <textarea id="css"></textarea>
+        <label class="full">Safe Actions (JSON)
+          <textarea id="safeActions" class="full" placeholder='{"hide":[".ad"]}'></textarea>
         </label>
-        <label>Inline JS
-          <textarea id="js"></textarea>
-        </label>
-        <label>Yerel JS (kütüphaneden ekle)
-          <select id="localJsSelect" multiple></select>
+        <label class="full">Yerel JS (kütüphaneden ekle)
+          <select id="localJsSelect" class="full" multiple></select>
           <div class="small">Yerel JS kütüphanesini Options sayfasından yönet.</div>
         </label>
-        <div class="row">
-          <button id="applyNow">Hemen Uygula</button>
-          <button class="secondary" id="saveRule">Kural Kaydet</button>
+        <div class="actions">
           <button class="secondary" id="openOptions">Ayarlar</button>
+          <button class="secondary" id="saveRule">Kaydet</button>
+          <button id="applyNow">Hemen Uygula</button>
         </div>
         <div class="small" id="msg"></div>
       </div>
     </div>
 
     <div class="panel" style="margin-top:10px;">
-      <div class="col">
-        <div class="row" style="justify-content:space-between;align-items:center;">
-          <strong>Eşleşen Kurallar</strong>
-          <span class="small" id="matchCount"></span>
-        </div>
-        <div class="list" id="matches"></div>
+      <div class="row" style="justify-content:space-between;align-items:center;">
+        <strong>Eşleşen Kurallar</strong>
+        <span class="small" id="matchCount"></span>
       </div>
+      <div class="list" id="matches"></div>
     </div>
 
     <div class="panel" style="margin-top:10px;">

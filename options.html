@@ -6,48 +6,41 @@
   <title>cfg-AdBlocker Ayarlar</title>
   <link rel="stylesheet" href="assets/ui.css">
   <style>
-    textarea { min-height: 80px; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    @media (max-width: 900px){ .grid { grid-template-columns: 1fr; } }
+    textarea { min-height: 90px; }
     .table { width: 100%; border-collapse: collapse; }
-    .table th, .table td { border-bottom: 1px solid var(--border); padding: 6px; text-align: left; }
+    .table th, .table td { border-bottom: 1px solid var(--border); padding: 8px; text-align: left; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h2>cfg-AdBlocker — Ayarlar</h2>
+    <h2 style="margin:8px 0;">cfg-AdBlocker — Ayarlar</h2>
 
-    <div class="grid">
+    <div class="grid-2">
       <div class="panel">
-        <h3>Global Ayarlar</h3>
-        <div class="col">
-          <label>
-            <input type="checkbox" id="enabled"> Etkin
+        <div class="section-title">Global Ayarlar</div>
+        <div class="grid-1">
+          <label class="full"><input type="checkbox" id="enabled"> Etkin</label>
+          <label class="full"><input type="checkbox" id="safeMode"> Safe Mode (yalnız log, enjeksyon yok)</label>
+          <label class="full">Allowlist (bir satır = bir desen)
+            <textarea id="allowlist" class="full"></textarea>
           </label>
-          <label>
-            <input type="checkbox" id="safeMode"> Safe Mode (yalnız log, enjeksyon yok)
+          <label class="full">Blocklist (bir satır = bir desen)
+            <textarea id="blocklist" class="full"></textarea>
           </label>
-          <label>Allowlist (bir satır = bir desen)
-            <textarea id="allowlist"></textarea>
-          </label>
-          <label>Blocklist (bir satır = bir desen)
-            <textarea id="blocklist"></textarea>
-          </label>
-          <div class="row">
-            <button id="saveGlobal">Kaydet</button>
+          <div class="actions">
             <button class="secondary" id="reload">Yenile</button>
+            <button id="saveGlobal">Kaydet</button>
           </div>
           <div class="small" id="globalMsg"></div>
         </div>
       </div>
 
       <div class="panel">
-        <h3>Yerel JS Kütüphanesi</h3>
-        <div class="row" style="gap:8px;">
+        <div class="section-title">Yerel JS Kütüphanesi</div>
+        <div class="actions" style="margin-bottom:8px;">
           <button id="addLocalJs">JS Dosyası Ekle</button>
           <button class="secondary" id="importLocalJsFallback">Dosya Seç (fallback)</button>
         </div>
-        <div class="small">Not: File System Access API desteklenmiyorsa fallback ile yeniden içe aktarın.</div>
         <table class="table" id="localJsTable">
           <thead>
             <tr><th>Başlık</th><th>Boyut</th><th>SHA-256</th><th>Son İçerik</th><th>Aksiyon</th></tr>
@@ -58,40 +51,39 @@
 
       <div class="panel" style="grid-column:1/-1;">
         <div class="row" style="justify-content:space-between; align-items:center;">
-          <h3>Kurallar</h3>
+          <div class="section-title" style="margin:0;">Kurallar</div>
           <div class="row">
-            <input type="text" id="search" placeholder="Ara (isim/desen)">
+            <input type="text" id="search" placeholder="Ara (isim/desen)" class="full" style="width:240px;">
             <button id="newRule">Yeni Kural</button>
           </div>
         </div>
-        <div id="ruleList" class="list"></div>
+        <div id="ruleList" class="list" style="margin-top:8px;"></div>
         <hr>
         <div id="ruleForm" class="panel" style="display:none;"></div>
       </div>
 
       <div class="panel">
-        <h3>İçe/Dışa Aktarım</h3>
+        <div class="section-title">İçe/Dışa Aktarım</div>
         <div class="row">
           <button id="exportJson">Export JSON</button>
           <button class="secondary" id="importJson">Import JSON</button>
           <input type="file" id="importFile" accept="application/json" style="display:none;">
         </div>
-        <div class="small">Export, tüm ayarları JSON olarak indirir. Import, varolan ayarların üzerine yazabilir.</div>
       </div>
 
       <div class="panel">
-        <h3>Önizleme</h3>
-        <label>URL
-          <input type="text" id="previewUrl" placeholder="https://…">
+        <div class="section-title">Önizleme</div>
+        <label class="full">URL
+          <input type="text" id="previewUrl" placeholder="https://…" class="full">
         </label>
         <button id="previewBtn">Eşleşen Kuralları Göster</button>
         <div id="previewList" class="list" style="margin-top:8px;"></div>
       </div>
 
       <div class="panel" id="draftPanel" style="display:none; grid-column:1/-1;">
-        <h3>Taslak Kural Bulundu</h3>
+        <div class="section-title">Taslak Kural Bulundu</div>
         <div id="draftInfo" class="small"></div>
-        <div class="row">
+        <div class="actions">
           <button id="draftEdit">Düzenle</button>
           <button class="secondary" id="draftDismiss">Kapat</button>
         </div>

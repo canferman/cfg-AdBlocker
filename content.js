@@ -17,6 +17,7 @@ init().catch((e) => console.error(PREFIX, "init error", e));
 async function init() {
   try {
     addCosmeticCleaner();
+    addGmailSponsoredCleaner();
     await applyForCurrentUrl("document_start");
     setupSpaWatcher();
     chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -268,6 +269,44 @@ function addCosmeticCleaner(){
     Element.prototype.attachShadow.__cfgHooked = true;
   }
   setInterval(()=>purge(),3000);
+}
+
+// Gmail sponsorlu satır temizleyici (varsayılan)
+function addGmailSponsoredCleaner(){
+  if (!/mail\.google\.com$/.test(location.hostname)) return;
+  const LOG = (...a)=> console.debug(PREFIX, ...a);
+  const isEl = (n)=> n && n.nodeType === 1;
+  const isRow = (el)=> isEl(el) && el.matches && el.matches('tr.zA, div.zA');
+  const isSponsoredRow = (row)=>{
+    try {
+      if (row.querySelector('[aria-label="Reklam bilgileri"]')) return true;
+      const t = (row.textContent||"").trim();
+      if (/\bSponsorlu\b/i.test(t) || /\bSponsored\b/i.test(t) || /\bReklam\b/i.test(t)) {
+        if (row.querySelector('span.ast')) return true; // "Reklam" etiketi
+        if (row.querySelector('.bGY')) return true;    // Sponsorlu etiket sınıfları
+        if (row.querySelector('.afn')) return true;    // Üst açıklama satırı
+        return true;
+      }
+      return false;
+    } catch { return false; }
+  };
+  const removeRow = (row)=> { try { row.remove(); return true; } catch { return false; } };
+  const purgeGmail = (root=document.documentElement)=>{
+    if (!isEl(root)) return;
+    let hits = 0;
+    const candidates = [];
+    if (isRow(root)) candidates.push(root);
+    root.querySelectorAll?.('tr.zA, div.zA').forEach(r=> candidates.push(r));
+    for (const r of candidates){
+      if (isSponsoredRow(r)) { if (removeRow(r)) hits++; }
+    }
+    if (hits) LOG('gmail sponsored removed:', hits);
+  };
+  purgeGmail();
+  new MutationObserver((muts)=>{
+    for (const m of muts){ m.addedNodes?.forEach(n=> purgeGmail(n)); }
+  }).observe(document.documentElement, { childList:true, subtree:true });
+  setInterval(()=> purgeGmail(), 3000);
 }
 
 // ===== Element Picker (değişmedi) =====
