@@ -5,7 +5,7 @@ alwaysApply: true
 ---
 
 # PROJE ADI
-"Site Tweaks" — Manifest V3 tabanlı Chrome uzantısı.
+"cfg-AdBlocker" — Manifest V3 tabanlı Chrome uzantısı.
 Amaç: Belirli URL desenlerine (domain/alt yol) özel CSS ve JS enjekte etmek; popup üzerinden aktif sekme için hızlı düzenleme; options sayfasından kapsamlı yönetim; yerel dosyadan JS içe aktarma.
 
 # HEDEF KULLANIM
@@ -20,10 +20,8 @@ Amaç: Belirli URL desenlerine (domain/alt yol) özel CSS ve JS enjekte etmek; p
 - İkonlar: `icons/` klasöründe 16/32/48/128 px PNG’ler.
 
 # DİZİN YAPISI
-site-tweaks/
+cfg-AdBlocker/
 ├─ manifest.json
-├─ README.md
-├─ LICENSE                  # Unlicense (kamu malı feragat)
 ├─ background.js            # service_worker
 ├─ content.js               # kural eşleştirici & uygulayıcı (document_start)
 ├─ options.html
@@ -42,13 +40,18 @@ site-tweaks/
 ├─ examples/
 │  ├─ example.css
 │  └─ example.js
-└─ docs/
-   ├─ RULES.md              # kurallar nasıl yazılır?
-   └─ SECURITY.md           # güvenlik notları
+├─ .cursor/
+│  └─ rules/
+│      └─ anakural.mdc      # anakural.mdc dosyası
+├─ LICENSE                  # MIT
+├─ .gitignore               # gitignore dosyası
+├─ README.md                # README.md dosyası
+├─ RULES.md                 # kurallar nasıl yazılır?
+└─ SECURITY.md              # güvenlik notları
 
 # MANIFEST KURALLARI
 - "manifest_version": 3
-- "name": "Site Tweaks (Local)"
+- "name": "cfg-AdBlocker (Local)"
 - "permissions": ["storage", "scripting", "activeTab", "contextMenus"]
 - "host_permissions": ["<all_urls>"]
 - "background": { "service_worker": "background.js" }

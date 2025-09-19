@@ -1,6 +1,6 @@
 # Güvenlik Politikası
 
-Bu dosya, **Site Tweaks (Local)** Chrome uzantısının güvenlik yaklaşımını ve sınırlamalarını açıklar.
+Bu dosya, **cfg-AdBlocker (Local)** Chrome uzantısının güvenlik yaklaşımını ve sınırlamalarını açıklar.
 
 ---
 
@@ -54,4 +54,4 @@ Yine de bir güvenlik açığı bulursanız GitHub Issues üzerinden bildirebili
 
 ## 📜 Lisans ve Feragat
 
-Bu proje **kamu malıdır** (Unlicense). Kodun kullanımından doğabilecek sonuçlar tamamen kullanıcı sorumluluğundadır.
+Bu proje **MIT** lisanslıdır. Kodun kullanımından doğabilecek sonuçlar tamamen kullanıcı sorumluluğundadır.

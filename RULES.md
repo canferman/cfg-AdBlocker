@@ -1,8 +1,8 @@
 ## 📝 RULES.md
 
-# Site Tweaks – Kural Yazım Rehberi
+# cfg-AdBlocker – Kural Yazım Rehberi
 
-Bu belge, **Site Tweaks (Local)** uzantısında kullanılacak kuralların nasıl yazılacağını ve hangi özellikleri desteklediğini açıklar.
+Bu belge, **cfg-AdBlocker (Local)** uzantısında kullanılacak kuralların nasıl yazılacağını ve hangi özellikleri desteklediğini açıklar.
 
 ---
 

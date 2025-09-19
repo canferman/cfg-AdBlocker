@@ -2,10 +2,10 @@
 
 ## 📝 README.md
 
-**Site Tweaks (Local)**, yalnızca kendi bilgisayarınızda kullanmak üzere geliştirilmiş, Manifest V3 tabanlı bir Chrome eklentisidir.  
+**cfg-AdBlocker (Local)**, yalnızca kendi bilgisayarınızda kullanmak üzere geliştirilmiş, Manifest V3 tabanlı bir Chrome eklentisidir.  
 Belirli web sitelerine özel **CSS** ve **JS** ekleyebilir, görünümü kişiselleştirebilir, istenmeyen alanları gizleyebilir ve bazı işleri otomatikleştirebilirsiniz.
 
-> ⚠️ Bu proje **kamu malıdır** (Unlicense). Hiçbir hak talep edilmez. Tamamen açık kaynak ve ücretsizdir.
+> ⚠️ Bu proje MIT lisanslıdır.
 
 ---
 
@@ -60,21 +60,34 @@ Belirli web sitelerine özel **CSS** ve **JS** ekleyebilir, görünümü kişise
 
 ```
 
-site-tweaks/
+cfg-AdBlocker/
 ├─ manifest.json
-├─ background.js
-├─ content.js
-├─ popup.html / popup.js
-├─ options.html / options.js
-├─ assets/ui.css
-├─ icons/ (16/32/48/128 px)
-├─ examples/example.css & example.js
-├─ schema.json
-├─ storage-migrations.js
-├─ LICENSE
-├─ README.md
-├─ SECURITY.md
-└─ RULES.md
+├─ background.js            # service_worker
+├─ content.js               # kural eşleştirici & uygulayıcı (document_start)
+├─ options.html
+├─ options.js
+├─ popup.html
+├─ popup.js
+├─ schema.json              # kural şeması (JSON Schema)
+├─ storage-migrations.js    # ileride şema değişirse dönüşüm mantığı
+├─ assets/
+│  └─ ui.css                # options/popup ortak ufak stiller
+├─ icons/
+│  ├─ icon16.png
+│  ├─ icon32.png
+│  ├─ icon48.png
+│  └─ icon128.png
+├─ examples/
+│  ├─ example.css
+│  └─ example.js
+├─ .cursor/
+│  └─ rules/
+│      └─ anakural.mdc      # anakural.mdc dosyası
+├─ LICENSE                  # MIT
+├─ .gitignore               # gitignore dosyası
+├─ README.md                # README.md dosyası
+├─ RULES.md                 # kurallar nasıl yazılır?
+└─ SECURITY.md              # güvenlik notları
 
 ```
 
@@ -100,7 +113,7 @@ site-tweaks/
 
 ## 📜 Lisans
 
-Bu proje **kamu malıdır**. [MIT](LICENSE) kapsamında yayınlanmıştır.  
+Bu proje **MIT** lisanslıdır. [MIT](LICENSE) kapsamında yayınlanmıştır.  
 İstediğiniz gibi kullanabilir, değiştirebilir ve dağıtabilirsiniz.
 
 ---
