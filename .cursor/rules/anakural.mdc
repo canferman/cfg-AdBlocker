@@ -1,0 +1,196 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+
+# PROJE ADI
+"Site Tweaks" — Manifest V3 tabanlı Chrome uzantısı.
+Amaç: Belirli URL desenlerine (domain/alt yol) özel CSS ve JS enjekte etmek; popup üzerinden aktif sekme için hızlı düzenleme; options sayfasından kapsamlı yönetim; yerel dosyadan JS içe aktarma.
+
+# HEDEF KULLANIM
+- Yalnızca yerel kullanım; Chrome Web Mağazası’na yükleme düşünülmüyor (ama kod genel olarak temiz ve yayınlanabilir olsun).
+- Güvenlik, gizlilik ve minimal izinler öncelikli.
+
+# TEKNİK YIĞIN / DİLLER
+- Diller: Vanilla **JavaScript (ES2022)**, **HTML**, **CSS**. (TypeScript/Bundler **yok**.)
+- Manifest: **Manifest V3**.
+- Stil: Basit, inline veya küçük CSS dosyaları; harici UI kütüphanesi **yok**.
+- Editör: Basit `<textarea>`; ekstra bağımlılık yok. (İleri seviye editör istenirse sonradan eklenebilir.)
+- İkonlar: `icons/` klasöründe 16/32/48/128 px PNG’ler.
+
+# DİZİN YAPISI
+site-tweaks/
+├─ manifest.json
+├─ README.md
+├─ LICENSE                  # Unlicense (kamu malı feragat)
+├─ background.js            # service_worker
+├─ content.js               # kural eşleştirici & uygulayıcı (document_start)
+├─ options.html
+├─ options.js
+├─ popup.html
+├─ popup.js
+├─ schema.json              # kural şeması (JSON Schema)
+├─ storage-migrations.js    # ileride şema değişirse dönüşüm mantığı
+├─ assets/
+│  └─ ui.css                # options/popup ortak ufak stiller
+├─ icons/
+│  ├─ icon16.png
+│  ├─ icon32.png
+│  ├─ icon48.png
+│  └─ icon128.png
+├─ examples/
+│  ├─ example.css
+│  └─ example.js
+└─ docs/
+   ├─ RULES.md              # kurallar nasıl yazılır?
+   └─ SECURITY.md           # güvenlik notları
+
+# MANIFEST KURALLARI
+- "manifest_version": 3
+- "name": "Site Tweaks (Local)"
+- "permissions": ["storage", "scripting", "activeTab", "contextMenus"]
+- "host_permissions": ["<all_urls>"]
+- "background": { "service_worker": "background.js" }
+- "action": { "default_popup": "popup.html", "default_icon": "icons/icon32.png" }
+- "options_page": "options.html"
+- "icons": {16,32,48,128}
+- "content_scripts":
+  - matches: ["<all_urls>"]
+  - js: ["content.js"]
+  - run_at: "document_start"
+  - all_frames: false
+
+# KURAL ŞEMASI (schema.json)
+Kural seti `chrome.storage.local` altında saklanır.
+Yapı:
+{
+  "enabled": boolean,                    # global aç/kapa
+  "version": number,                     # şema sürümü
+  "rules": Rule[]
+}
+
+Rule:
+{
+  "id": string,                          # uuid
+  "name": string,                        # kısa açıklama
+  "enabled": boolean,                    # kural aç/kapa
+  "pattern": string,                     # örn: "*://*.example.com/*" veya "https://foo.com/bar*"
+  "excludePatterns": string[]?,          # hariç tutulan desenler
+  "scope": "DOMAIN" | "URL" | "PATTERN", # popup'ta hızlı seçim için
+  "priority": number,                    # küçük sayı önce uygulanır
+  "runAt": "document_start" | "document_end" | "document_idle",
+  "world": "ISOLATED" | "MAIN",          # JS’in çalışacağı dünya
+  "css": string?,                        # inline CSS
+  "cssFiles": string[]?,                 # uzantı içi css dosyaları (examples/example.css gibi)
+  "js": string?,                         # inline JS
+  "jsFiles": string[]?,                  # uzantı içi js dosyaları
+  "localJs": LocalJsRef[]?,              # yerelden içe aktarılan JS dosyaları (içerik saklanır)
+  "safeMode": boolean?,                  # true ise yalnız log; enjekte etmez
+  "notes": string?                       # kullanıcı notu
+}
+
+LocalJsRef:
+{
+  "title": string,                       # kullanıcıya görünen ad
+  "lastImportedAt": number,              # epoch ms
+  "size": number,
+  "hash": string,                        # içerik hash'i (sha256)
+  "handleId": string?,                   # File System Access API için serialized handle id (mümkünse)
+  "content": string                      # dosya içeriği (escape edilmeden saklanır)
+}
+
+# ÖNEMLİ KISITLAR / TASARIM KARARLARI
+- **Uzaktan kod yükleme YOK.** (http/https URL’den script/css çekme yok.)
+- **Yerel dosya yolu** doğrudan kullanılamaz (Chrome güvenliği). Çözüm:
+  - Options sayfasında **dosya seçici** ile JS dosyasını içe aktar → içerik `localJs` altında saklanır.
+  - Mümkünse File System Access API handle saklanır ve “Diskten yenile” butonu ile içerik güncellenebilir (kullanıcı izniyle).
+  - Fallback: `<input type="file">` ile tekrar içe aktarma.
+- **MAIN world** sadece gerekliyse; varsayılan ISOLATED.
+- CSS için **FOUC** azaltmak amacıyla `document_start` ve `<style>` ile hızlı ekleme; ayrıca gerektiğinde `chrome.scripting.insertCSS` kullanılabilir.
+- SPA URL değişimleri: `content.js` içinde **URL değişim dedektörü** (history.pushState/popstate/hashchange) ile yeniden eşleştirme ve uygulama.
+- Kritik siteler için **global blok listesi** desteklenir (options → “Güvenli Liste/Engel Listesi”); bu desenlere **hiçbir enjeksyon** yapılmaz.
+
+# POPUP (KAPSAM)
+- Aktif sekmenin URL’sini ve eşleşen kural(lar)ı göster.
+- “Bu site için kural oluştur” hızlı sihirbazı:
+  - Scope seçimi: DOMAIN / URL / PATTERN
+  - Inline CSS/JS alanları
+  - World seçimi (ISOLATED/MAIN)
+  - Local JS içe aktarılmış dosyalardan seçim
+  - “Hemen Uygula” düğmesi → aktif sekmede enjeksyon
+- Kural aç/kapa toggle
+- Bu sayfadaki en son uygulama loglarını görüntüleyebilme (son X kayıt).
+
+# OPTIONS (YÖNETİM)
+- Kural listesi (aranabilir/sıralanabilir).
+- Kural düzenleme formu (şemaya uygun).
+- Import/Export: tüm ayarları JSON olarak indir/yükle.
+- Global ayarlar:
+  - enabled toggle
+  - safeMode global
+  - güvenli/engelli desen listeleri
+- Yerel dosya yönetimi:
+  - JS dosyası ekle (içe aktar)
+  - Yeniden içe aktar / diskte güncellemeleri çek
+  - Hash ve boyut gösterimi
+- Geçerli sekme URL’sine dayalı önizleme: “Eşleşen kuralları göster/denetle” butonu.
+
+# BACKGROUND (SERVICE WORKER)
+- Context menu:
+  - “Bu öğeyi gizle (selector üret)” — content script’e mesaj atılır, seçilen element için özgül CSS seçici üretilip kural taslağına eklenir (Options’a kaydedilmeden önce onay).
+- `chrome.runtime.onInstalled` → varsayılan yapı (enabled:true, version:1, rules:[])
+- Mesajlaşma: popup/options/content arasında tek tip mesaj protokolü.
+
+# CONTENT SCRIPT
+- Depodaki kuralları al, geçerli URL’ye göre **sıralı** uygula (priority).
+- `excludePatterns` destekle.
+- CSS enjeksiyon:
+  - inline `<style>` etiketleri (erken)
+  - istenirse `insertCSS` kullan (popup’tan “hemen uygula” için)
+- JS enjeksiyon:
+  - ISOLATED: content dünyasında `Function` ile güvenli wrapper, try/catch log.
+  - MAIN: `chrome.scripting.executeScript({ world:"MAIN" })` (mümkün değilse `<script>` DOM enjeksiyonu fallback).
+- SPA URL değişimi için watcher.
+- Konsol loglarında `[SiteTweaks]` prefix.
+
+# GÜVENLİK
+- Dış ağ istekleri yok.
+- Yalnızca kullanıcı tarafından girilen kod çalıştırılır.
+- MAIN dünyada çalıştırma öncesi uyarı.
+- Kritik domain blok listesi uygulanır.
+- Storage migration güvenli; eski alanları map et.
+
+# TEST/ONAY KRİTERLERİ
+- Kurallar kaydedilip yeni sekmede otomatik uygulanıyor mu?
+- Popup’tan “Bu site için kural” sihirbazı kural ekliyor mu?
+- Local JS içe aktarılıyor, hash hesaplanıyor, enjekte ediliyor mu?
+- ISOLATED/MAIN farkı çalışıyor mu?
+- SPA URL değişiminde kural yeniden tetikleniyor mu?
+- Export/Import ile veri kaybı olmuyor mu?
+- Global safeMode’de yalnız log atılıyor mu?
+- Blok listesi eşleşen URL’lerde enjeksyon olmuyor mu?
+
+# KOD STİLİ
+- `"use strict";`
+- Modüler fonksiyonlar, tek sorumluluk.
+- Yorum satırları: üst düzey fonksiyonlara kısa açıklama.
+- Prettier varsayılan; ek config gerekmez.
+
+# DÖKÜMANTASYON
+- README: kurulum, kullanım, bilinen kısıtlar (yerel dosya yolu), güvenlik notları.
+- SECURITY.md: neden uzaktan kod yüklemediğimiz, MAIN riskleri.
+- RULES.md: desen örnekleri, iyi pratikler.
+
+# LİSANS
+- **MIT** (kamu malı). LICENSE dosyasını standard metinle ekle.
+
+# YAN ETKİLERDEN KAÇIN
+- Pencereler arası global event ekleme yok.
+- Fazla dom gözlemi yok; hafif çözümler.
+- Büyük kütüphane ekleme yok.
+
+# ÇIKTI KALİTESİ
+- Tüm dosyalar çalışır halde; Chrome’da Load Unpacked ile test edilebilir.
+- Gereken her yerde hata yakalama ve kullanıcıya anlamlı uyarı.
+
