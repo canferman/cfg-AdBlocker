@@ -1,0 +1,69 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>cfg-AdBlocker</title>
+  <link rel="stylesheet" href="assets/ui.css">
+  <style>
+    body { width: 360px; }
+    textarea { height: 80px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="panel">
+      <div class="col">
+        <div class="small" id="urlInfo">Aktif sekme: -</div>
+        <label>Scope
+          <select id="scope">
+            <option value="DOMAIN">DOMAIN</option>
+            <option value="URL">URL</option>
+            <option value="PATTERN">PATTERN</option>
+          </select>
+        </label>
+        <label>World
+          <select id="world">
+            <option value="ISOLATED">ISOLATED</option>
+            <option value="MAIN">MAIN</option>
+          </select>
+        </label>
+        <label>Inline CSS
+          <textarea id="css"></textarea>
+        </label>
+        <label>Inline JS
+          <textarea id="js"></textarea>
+        </label>
+        <label>Yerel JS (kütüphaneden ekle)
+          <select id="localJsSelect" multiple></select>
+          <div class="small">Yerel JS kütüphanesini Options sayfasından yönet.</div>
+        </label>
+        <div class="row">
+          <button id="applyNow">Hemen Uygula</button>
+          <button class="secondary" id="saveRule">Kural Kaydet</button>
+          <button class="secondary" id="openOptions">Ayarlar</button>
+        </div>
+        <div class="small" id="msg"></div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:10px;">
+      <div class="col">
+        <div class="row" style="justify-content:space-between;align-items:center;">
+          <strong>Eşleşen Kurallar</strong>
+          <span class="small" id="matchCount"></span>
+        </div>
+        <div class="list" id="matches"></div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:10px;">
+      <div class="col">
+        <strong>Son Loglar</strong>
+        <div class="list small" id="logs"></div>
+      </div>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

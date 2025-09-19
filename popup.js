@@ -1,0 +1,259 @@
+"use strict";
+
+const STORAGE_KEY = "cfgState";
+
+const els = {
+  urlInfo: document.getElementById("urlInfo"),
+  scope: document.getElementById("scope"),
+  world: document.getElementById("world"),
+  css: document.getElementById("css"),
+  js: document.getElementById("js"),
+  localJsSelect: document.getElementById("localJsSelect"),
+  applyNow: document.getElementById("applyNow"),
+  saveRule: document.getElementById("saveRule"),
+  openOptions: document.getElementById("openOptions"),
+  msg: document.getElementById("msg"),
+  matches: document.getElementById("matches"),
+  matchCount: document.getElementById("matchCount"),
+  logs: document.getElementById("logs")
+};
+
+let active = { url: null, tabId: null };
+let state = null;
+let editingRuleId = null;
+
+init().catch(console.error);
+
+async function init() {
+  active = await chrome.runtime.sendMessage({ type: "CFG_GET_ACTIVE_TAB_URL" });
+  els.urlInfo.textContent = `Aktif sekme: ${active.url || "-"}`;
+
+  const stored = await chrome.storage.local.get([STORAGE_KEY, "draftRuleCandidate"]);
+  state = stored[STORAGE_KEY] || { rules: [], localJsLibrary: [], logs: [] };
+
+  refreshLocalJsSelect();
+
+  // Eğer taslak yoksa, mevcut eşleşen ilk kuralı forma doldur
+  if (!stored.draftRuleCandidate) {
+    const matched = getMatchedRules(active.url, state.rules);
+    if (matched.length) prefillFromRule(matched[0]);
+  }
+
+  renderMatches();
+  renderLogs();
+
+  // Draft kural varsa alanları doldur
+  if (stored.draftRuleCandidate) {
+    els.css.value = stored.draftRuleCandidate.css || "";
+    els.js.value = stored.draftRuleCandidate.js || "";
+    els.world.value = stored.draftRuleCandidate.world || "ISOLATED";
+    els.scope.value = stored.draftRuleCandidate.scope || "DOMAIN";
+    editingRuleId = null; // taslak modu yeni kural
+    await chrome.storage.local.remove("draftRuleCandidate");
+  }
+
+  els.applyNow.addEventListener("click", onApplyNow);
+  els.saveRule.addEventListener("click", onSaveRule);
+  els.openOptions.addEventListener("click", () => chrome.runtime.openOptionsPage());
+}
+
+function refreshLocalJsSelect() {
+  const lib = Array.isArray(state.localJsLibrary) ? state.localJsLibrary : [];
+  els.localJsSelect.innerHTML = "";
+  for (const item of lib) {
+    const opt = document.createElement("option");
+    opt.value = item.id;
+    opt.textContent = `${item.title} (${item.size}B)`;
+    els.localJsSelect.appendChild(opt);
+  }
+}
+
+function wildcardToRegExp(pattern) {
+  const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp("^" + escaped.replace(/\*/g, ".*") + "$");
+}
+
+function urlMatches(url, pattern) {
+  try {
+    const patterns = pattern.includes("://*.") || pattern.includes("://*.")
+      ? [pattern, pattern.replace("://*.", "://").replace("://*.", "://").replace("://*.", "://")] 
+      : [pattern];
+    for (const p of patterns) { if (wildcardToRegExp(p).test(url)) return true; }
+    return false;
+  } catch { return false; }
+}
+
+function getMatchedRules(url, rules) {
+  const arr = Array.isArray(rules) ? rules : [];
+  return arr.filter(r => r.enabled && urlMatches(url, r.pattern)).sort((a,b)=> (a.priority??0)-(b.priority??0));
+}
+
+function prefillFromRule(rule){
+  editingRuleId = rule.id;
+  els.css.value = rule.css || "";
+  els.js.value = rule.js || "";
+  els.world.value = rule.world || "ISOLATED";
+  els.scope.value = rule.scope || "DOMAIN";
+  setMsg("Mevcut kural yüklendi.");
+}
+
+function getEditingBaseRule(){
+  if (!editingRuleId) return null;
+  const rules = Array.isArray(state.rules) ? state.rules : [];
+  return rules.find(r => r.id === editingRuleId) || null;
+}
+
+function getPatternForScope(url, scope) {
+  try {
+    const u = new URL(url);
+    if (scope === "URL") return u.href;
+    if (scope === "DOMAIN") {
+      const host = u.hostname.startsWith("www.") ? u.hostname.slice(4) : u.hostname;
+      return `*://*.${host}/*`;
+    }
+    return "*://*/*"; // PATTERN serbest
+  } catch {
+    return "*://*/*";
+  }
+}
+
+function getSelectedLocalJs() {
+  const ids = Array.from(els.localJsSelect.selectedOptions).map(o => o.value);
+  const lib = state.localJsLibrary || [];
+  return lib.filter(x => ids.includes(x.id)).map(x => ({
+    title: x.title,
+    lastImportedAt: x.lastImportedAt,
+    size: x.size,
+    hash: x.hash,
+    handleId: x.handleId || null,
+    content: x.content
+  }));
+}
+
+async function onApplyNow() {
+  const rule = buildRuleDraft();
+  try {
+    await chrome.runtime.sendMessage({ type: "CFG_APPLY_NOW", tabId: active.tabId, rule });
+    setMsg("Uygulandı.");
+  } catch (e) {
+    setMsg("Hata: " + String(e));
+  }
+}
+
+async function onSaveRule() {
+  const draft = buildRuleDraft();
+  try {
+    const { [STORAGE_KEY]: st } = await chrome.storage.local.get(STORAGE_KEY);
+    const list = Array.isArray(st?.rules) ? st.rules.slice() : [];
+    if (editingRuleId) {
+      const idx = list.findIndex(x => x.id === editingRuleId);
+      if (idx >= 0) list[idx] = draft; else list.push(draft);
+      setMsg("Güncellendi.");
+    } else {
+      list.push(draft);
+      setMsg("Kaydedildi. Options'tan yönetebilirsiniz.");
+    }
+    await chrome.storage.local.set({ [STORAGE_KEY]: { ...st, rules: list } });
+    state.rules = list;
+    renderMatches();
+  } catch (e) {
+    setMsg("Hata: " + String(e));
+  }
+}
+
+function buildRuleDraft() {
+  if (editingRuleId) {
+    const base = getEditingBaseRule();
+    const name = base?.name || "Popup kuralı";
+    return {
+      id: base?.id || cryptoId(),
+      name,
+      enabled: base?.enabled !== false,
+      pattern: base?.pattern || getPatternForScope(active.url, els.scope.value),
+      excludePatterns: Array.isArray(base?.excludePatterns) ? base.excludePatterns : [],
+      scope: base?.scope || els.scope.value,
+      priority: typeof base?.priority === 'number' ? base.priority : 100,
+      runAt: base?.runAt || "document_start",
+      world: els.world.value,
+      css: els.css.value,
+      cssFiles: Array.isArray(base?.cssFiles) ? base.cssFiles : [],
+      js: els.js.value,
+      jsFiles: Array.isArray(base?.jsFiles) ? base.jsFiles : [],
+      localJs: getSelectedLocalJs(),
+      safeMode: !!base?.safeMode,
+      notes: base?.notes || ""
+    };
+  }
+  const pattern = getPatternForScope(active.url, els.scope.value);
+  return {
+    id: cryptoId(),
+    name: "Popup kuralı",
+    enabled: true,
+    pattern,
+    excludePatterns: [],
+    scope: els.scope.value,
+    priority: 100,
+    runAt: "document_start",
+    world: els.world.value,
+    css: els.css.value,
+    cssFiles: [],
+    js: els.js.value,
+    jsFiles: [],
+    localJs: getSelectedLocalJs(),
+    safeMode: false,
+    notes: "Popup üzerinden oluşturuldu"
+  };
+}
+
+function cryptoId() {
+  const arr = new Uint8Array(8); crypto.getRandomValues(arr);
+  return Array.from(arr).map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+
+function setMsg(t) { els.msg.textContent = t; setTimeout(()=> els.msg.textContent = "", 2000); }
+
+function renderMatches() {
+  els.matches.innerHTML = "";
+  const rules = Array.isArray(state.rules) ? state.rules : [];
+  const url = active.url || "";
+  const matched = rules.filter(r => r.enabled && urlMatches(url, r.pattern));
+  els.matchCount.textContent = `${matched.length}`;
+  matched.sort((a,b)=> (a.priority??0)-(b.priority??0));
+  for (const r of matched) {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `
+      <div class="row" style="justify-content:space-between;align-items:center;">
+        <div><strong>${escapeHtml(r.name)}</strong> <span class="badge">${r.world}</span></div>
+        <label class="small">Açık <input type="checkbox" ${r.enabled?"checked":""}></label>
+      </div>
+      <div class="small">${escapeHtml(r.pattern)}</div>
+    `;
+    const toggle = card.querySelector("input[type=checkbox]");
+    toggle.addEventListener("change", async () => {
+      const { [STORAGE_KEY]: st } = await chrome.storage.local.get(STORAGE_KEY);
+      const list = Array.isArray(st?.rules) ? st.rules.slice() : [];
+      const idx = list.findIndex(x => x.id === r.id);
+      if (idx >= 0) {
+        list[idx].enabled = toggle.checked;
+        await chrome.storage.local.set({ [STORAGE_KEY]: { ...st, rules: list } });
+        state.rules = list;
+        renderMatches();
+      }
+    });
+    els.matches.appendChild(card);
+  }
+}
+
+function renderLogs(){
+  const logs = Array.isArray(state.logs)? state.logs.slice(-20) : [];
+  els.logs.innerHTML = "";
+  for (const l of logs.reverse()){
+    const div = document.createElement("div");
+    const time = new Date(l.ts||0).toLocaleTimeString();
+    div.textContent = `${time} • ${l.action||"-"} • ${l.name||l.ruleId||"?"}`;
+    els.logs.appendChild(div);
+  }
+}
+
+function escapeHtml(s){ return (s||"").replace(/[&<>"]/g, c=> ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }

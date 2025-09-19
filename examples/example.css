@@ -1,0 +1,3 @@
+/* cfg-AdBlocker örnek CSS */
+body { filter: grayscale(100%); }
+.ad, [id*="ad" i] { display: none !important; }

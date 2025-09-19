@@ -45,6 +45,11 @@ Belirli web sitelerine özel **CSS** ve **JS** ekleyebilir, görünümü kişise
 4. **Load unpacked** butonuna tıklayıp proje klasörünü seçin.  
 5. Toolbar’daki simgeye tıklayarak popup’ı açın ve ayarlarınızı yapın.
 
+### İkonlar
+- `icons/` klasörüne `icon16.png`, `icon32.png`, `icon48.png`, `icon128.png` ekleyin.  
+- İsterseniz `manifest.json` içine `icons` ve `action.default_icon` alanlarını ekleyip bu dosyaları referans gösterin.  
+- İkonlar sağlanmadığında Chrome varsayılan simgeyi kullanabilir.
+
 ---
 
 ## ⚙️ Kullanım
@@ -73,10 +78,10 @@ cfg-AdBlocker/
 ├─ assets/
 │  └─ ui.css                # options/popup ortak ufak stiller
 ├─ icons/
-│  ├─ icon16.png
-│  ├─ icon32.png
-│  ├─ icon48.png
-│  └─ icon128.png
+│  ├─ icon16.png            # (ekleyin)
+│  ├─ icon32.png            # (ekleyin)
+│  ├─ icon48.png            # (ekleyin)
+│  └─ icon128.png           # (ekleyin)
 ├─ examples/
 │  ├─ example.css
 │  └─ example.js
