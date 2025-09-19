@@ -46,10 +46,16 @@ async function init() {
   renderLogs();
 
   if (stored.draftRuleCandidate) {
-    els.css.value = stored.draftRuleCandidate.css || "";
+    els.css.value = (stored.draftRuleCandidate.css || "").trim();
     els.world.value = stored.draftRuleCandidate.world || "ISOLATED";
     els.scope.value = stored.draftRuleCandidate.scope || "DOMAIN";
-    editingRuleId = null;
+    const sa = stored.draftRuleCandidate.safeActions || {};
+    const mergedSa = { ...sa };
+    if (sa.hide && Array.isArray(sa.hide)) {
+      mergedSa.hide = Array.from(new Set(sa.hide));
+    }
+    els.safeActions.value = JSON.stringify(mergedSa, null, 2);
+    editingRuleId = null; // taslak yeni kural kabul edilir
     await chrome.storage.local.remove("draftRuleCandidate");
   }
 

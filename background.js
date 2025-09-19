@@ -90,7 +90,15 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           notes: "Context menü ile oluşturulan seçici"
         };
         await chrome.storage.local.set({ draftRuleCandidate });
-        await chrome.runtime.openOptionsPage();
+        try {
+          if (chrome.action?.openPopup) {
+            await chrome.action.openPopup();
+          } else {
+            await chrome.runtime.openOptionsPage();
+          }
+        } catch (e) {
+          await chrome.runtime.openOptionsPage();
+        }
         sendResponse({ ok: true });
         return;
       }
