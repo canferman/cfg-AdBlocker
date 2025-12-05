@@ -212,15 +212,42 @@ async function addLog(entry) {
 function addCosmeticCleaner(){
   const LOG = (...a)=> console.debug(PREFIX, ...a);
   const INS = 'ins[id^="gpt_unit_"]';
-  const OVERLAY = [
-    '[class*="overlay"]','[id*="overlay"]',
-    '[class*="interstitial"]','[id*="interstitial"]',
-    '[class*="modal"]','[id*="modal"]',
-    '[class*="backdrop"]','[id*="backdrop"]',
-    '[role="dialog"]','[aria-modal="true"]'
-  ].join(",");
+  const GLOBAL_RULES = [
+    'div[id^="freestar-"]',
+    'div[class*="freestar"]',
+    '#carbonads',
+    '#carbon-ads',
+    '.carbon-wrap',
+    '.carbon-img',
+    '.carbon-text',
+    '.carbon-poweredby',
+    'div[class*="adsbygoogle"]',
+    'ins.adsbygoogle'
+  ];
+
+  const DOMAIN_RULES = {
+    "jsonformatter.org": [
+      'div[class^="img_"]',
+      '[class*="overlay"]','[id*="overlay"]',
+      '[class*="interstitial"]','[id*="interstitial"]',
+      '[class*="modal"]','[id*="modal"]',
+      '[class*="backdrop"]','[id*="backdrop"]',
+      '[role="dialog"]','[aria-modal="true"]'
+    ]
+  };
+
+  let activeRules = [...GLOBAL_RULES];
+  const hostname = window.location.hostname;
+  
+  for (const [domain, rules] of Object.entries(DOMAIN_RULES)) {
+    if (hostname.includes(domain)) {
+      activeRules.push(...rules);
+    }
+  }
+
+  const OVERLAY_SELECTOR = activeRules.join(",");
   const isEl = (n)=> n && n.nodeType === 1;
-  const findWrap = (el)=> el.closest(OVERLAY) || el.closest('*[style*="z-index"]') || el;
+  const findWrap = (el)=> el.closest(OVERLAY_SELECTOR) || el.closest('*[style*="z-index"]') || el;
   const remove = (n)=> { try{ isEl(n) && n.remove(); return true; } catch { return false; } };
   const unlock = ()=>{
     const b=document.body, h=document.documentElement;

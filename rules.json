@@ -24,5 +24,8 @@
     "condition": { "urlFilter": "adservice.google.com", "resourceTypes": ["script","sub_frame","xmlhttprequest","image"] } },
 
   { "id": 1009, "priority": 1, "action": { "type": "block" },
-    "condition": { "urlFilter": "adservice.google.com.tr", "resourceTypes": ["script","sub_frame","xmlhttprequest","image"] } }
+    "condition": { "urlFilter": "adservice.google.com.tr", "resourceTypes": ["script","sub_frame","xmlhttprequest","image"] } },
+
+  { "id": 1010, "priority": 1, "action": { "type": "block" },
+    "condition": { "urlFilter": "freestar.com", "resourceTypes": ["script","sub_frame","xmlhttprequest","image"] } }
 ]
