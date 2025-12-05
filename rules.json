@@ -27,5 +27,36 @@
     "condition": { "urlFilter": "adservice.google.com.tr", "resourceTypes": ["script","sub_frame","xmlhttprequest","image"] } },
 
   { "id": 1010, "priority": 1, "action": { "type": "block" },
-    "condition": { "urlFilter": "freestar.com", "resourceTypes": ["script","sub_frame","xmlhttprequest","image"] } }
+    "condition": { "urlFilter": "freestar.com", "resourceTypes": ["script","sub_frame","xmlhttprequest","image"] } },
+
+  { "id": 1011, "priority": 1, "action": { "type": "block" },
+    "condition": { "urlFilter": "static.criteo.net", "resourceTypes": ["script","sub_frame","xmlhttprequest","image"] } },
+
+  { "id": 1012, "priority": 1, "action": { "type": "block" },
+    "condition": { "urlFilter": "criteo.com", "resourceTypes": ["script","sub_frame","xmlhttprequest","image"] } },
+
+  { "id": 1013, "priority": 1, "action": { "type": "block" },
+    "condition": { "urlFilter": "html-load.cc", "resourceTypes": ["script","sub_frame","xmlhttprequest","image"] } },
+
+  { "id": 1014, "priority": 1, "action": { "type": "block" },
+    "condition": { "urlFilter": "amazon-adsystem.com", "resourceTypes": ["script","sub_frame","xmlhttprequest","image"] } },
+
+  { "id": 1015, "priority": 1, "action": { "type": "block" },
+    "condition": { "urlFilter": "quantserve.com", "resourceTypes": ["script","sub_frame","xmlhttprequest","image"] } },
+
+  { "id": 1016, "priority": 1, "action": { "type": "block" },
+    "condition": { "urlFilter": "pubmatic.com", "resourceTypes": ["script","sub_frame","xmlhttprequest","image"] } },
+
+  { "id": 1017, "priority": 1, "action": { "type": "block" },
+    "condition": { "urlFilter": "intosewyuckeven.com", "resourceTypes": ["script","sub_frame","xmlhttprequest","image"] } },
+
+  { "id": 1018, "priority": 1, "action": { "type": "block" },
+    "condition": { "urlFilter": "adsrvr.org", "resourceTypes": ["script","sub_frame","xmlhttprequest","image"] } },
+
+  { "id": 1019, "priority": 1, "action": { "type": "block" },
+    "condition": { "urlFilter": "middlegadzooks.com", "resourceTypes": ["script","sub_frame","xmlhttprequest","image"] } },
+
+  { "id": 1020, "priority": 1, "action": { "type": "block" },
+    "condition": { "urlFilter": "tillequal.com", "resourceTypes": ["script","sub_frame","xmlhttprequest","image"] } }
+
 ]
