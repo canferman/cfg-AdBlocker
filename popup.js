@@ -45,16 +45,54 @@ async function init() {
   renderLogs();
 
   if (stored.draftRuleCandidate) {
-    els.css.value = stored.draftRuleCandidate.css || "";
-    els.world.value = stored.draftRuleCandidate.world || "ISOLATED";
-    els.scope.value = stored.draftRuleCandidate.scope || "DOMAIN";
-    const sa = stored.draftRuleCandidate.safeActions || {};
-    const mergedSa = { ...sa };
-    if (sa.hide && Array.isArray(sa.hide)) {
-      mergedSa.hide = Array.from(new Set(sa.hide));
+    // Kural birleştirme mantığı:
+    // Eğer aynı pattern'e sahip (ve enabled) bir kural varsa, onun üzerine ekle.
+    const candidate = stored.draftRuleCandidate;
+    const existingRule = state.rules.find(r => r.pattern === candidate.pattern && r.scope === candidate.scope);
+
+    if (existingRule) {
+      // Mevcut kuralı düzenleme moduna al
+      editingRuleId = existingRule.id;
+      
+      // CSS birleştir
+      const newCss = candidate.css || "";
+      const oldCss = existingRule.css || "";
+      // Eğer yeni CSS zaten varsa ekleme
+      if (!oldCss.includes(newCss.trim())) {
+        els.css.value = oldCss ? `${oldCss}\n${newCss}` : newCss;
+      } else {
+        els.css.value = oldCss;
+      }
+
+      // Diğer alanları mevcut kuraldan koru, ancak yeni safeActions varsa birleştirilebilir (basitlik için şimdilik CSS odaklı)
+      els.world.value = existingRule.world || "ISOLATED";
+      els.scope.value = existingRule.scope || "DOMAIN";
+      els.jsFiles.value = (existingRule.jsFiles||[]).join(", ");
+      
+      // Safe Actions birleştirme (basitçe merge)
+      const sa = existingRule.safeActions || {};
+      const newSa = candidate.safeActions || {};
+      const mergedSa = { ...sa };
+      if (newSa.hide && Array.isArray(newSa.hide)) {
+        const oldHide = Array.isArray(sa.hide) ? sa.hide : [];
+        mergedSa.hide = Array.from(new Set([...oldHide, ...newSa.hide]));
+      }
+      els.safeActions.value = JSON.stringify(mergedSa, null, 2);
+
+      setMsg("Mevcut kural ile birleştirildi.");
+    } else {
+      // Yeni kural
+      els.css.value = candidate.css || "";
+      els.world.value = candidate.world || "ISOLATED";
+      els.scope.value = candidate.scope || "DOMAIN";
+      const sa = candidate.safeActions || {};
+      const mergedSa = { ...sa };
+      if (sa.hide && Array.isArray(sa.hide)) {
+        mergedSa.hide = Array.from(new Set(sa.hide));
+      }
+      els.safeActions.value = JSON.stringify(mergedSa, null, 2);
+      editingRuleId = null; 
     }
-    els.safeActions.value = JSON.stringify(mergedSa, null, 2);
-    editingRuleId = null; // taslak modu yeni kural
     await chrome.storage.local.remove("draftRuleCandidate");
   }
 

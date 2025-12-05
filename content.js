@@ -290,7 +290,7 @@ function addGmailSponsoredCleaner(){
       return false;
     } catch { return false; }
   };
-  const removeRow = (row)=> { try { row.remove(); return true; } catch { return false; } };
+  const removeRow = (row)=> { try { row.style.display = 'none'; return true; } catch { return false; } };
   const purgeGmail = (root=document.documentElement)=>{
     if (!isEl(root)) return;
     let hits = 0;
