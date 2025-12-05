@@ -42,23 +42,9 @@ async function getState() {
   return state || null;
 }
 
-function wildcardToRegExp(pattern) {
-  const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp("^" + escaped.replace(/\*/g, ".*") + "$");
-}
-
-function urlMatches(url, pattern) {
-  try {
-    const patterns = pattern.includes("://*.") || pattern.includes("://*.")
-      ? [pattern, pattern.replace("://*.", "://").replace("://*.", "://").replace("://*.", "://")] 
-      : [pattern];
-    for (const p of patterns) {
-      if (wildcardToRegExp(p).test(url)) return true;
-    }
-    return false;
-  } catch {
-    return false;
-  }
+function shouldSkipByExclude(url, excludePatterns) {
+  if (!Array.isArray(excludePatterns)) return false;
+  return excludePatterns.some((p) => urlMatches(url, p));
 }
 
 function shouldSkipByExclude(url, excludePatterns) {
@@ -403,8 +389,4 @@ function getElementIndex(el) {
   let p = el.previousElementSibling;
   while (p) { if (p.nodeName === el.nodeName) i++; p = p.previousElementSibling; }
   return i;
-}
-
-function cssEscape(str) {
-  return str.replace(/[^a-zA-Z0-9_-]/g, (m) => `\\${m}`);
 }

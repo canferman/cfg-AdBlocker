@@ -112,21 +112,6 @@ function refreshLocalJsSelect() {
   }
 }
 
-function wildcardToRegExp(pattern) {
-  const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp("^" + escaped.replace(/\*/g, ".*") + "$");
-}
-
-function urlMatches(url, pattern) {
-  try {
-    const patterns = pattern.includes("://*.") || pattern.includes("://*.")
-      ? [pattern, pattern.replace("://*.", "://").replace("://*.", "://").replace("://*.", "://")] 
-      : [pattern];
-    for (const p of patterns) { if (wildcardToRegExp(p).test(url)) return true; }
-    return false;
-  } catch { return false; }
-}
-
 function getMatchedRules(url, rules) {
   const arr = Array.isArray(rules) ? rules : [];
   return arr.filter(r => r.enabled && urlMatches(url, r.pattern)).sort((a,b)=> (a.priority??0)-(b.priority??0));
@@ -212,7 +197,7 @@ function buildRuleDraft() {
   let parsedSafe = {};
   try { parsedSafe = JSON.parse(els.safeActions.value||"{}"); } catch { parsedSafe = {}; }
   return {
-    id: base?.id || cryptoId(),
+    id: base?.id || cryptoRandomId(),
     name: base?.name || "Popup kuralı",
     enabled: base?.enabled !== false,
     pattern,
@@ -229,11 +214,6 @@ function buildRuleDraft() {
     safeMode: !!base?.safeMode,
     notes: base?.notes || ""
   };
-}
-
-function cryptoId() {
-  const arr = new Uint8Array(8); crypto.getRandomValues(arr);
-  return Array.from(arr).map(b=>b.toString(16).padStart(2,"0")).join("");
 }
 
 function setMsg(t) { els.msg.textContent = t; setTimeout(()=> els.msg.textContent = "", 2000); }
@@ -288,5 +268,3 @@ function renderLogs(){
     els.logs.appendChild(div);
   }
 }
-
-function escapeHtml(s){ return (s||"").replace(/[&<>"]/g, c=> ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c])); }

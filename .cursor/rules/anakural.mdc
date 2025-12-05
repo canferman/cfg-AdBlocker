@@ -141,7 +141,7 @@ LocalJsRef:
 
 # BACKGROUND (SERVICE WORKER)
 - Context menu:
-  - “Bu öğeyi gizle (selector üret)” — content script’e mesaj atılır, seçilen element için özgül CSS seçici üretilip kural taslağına eklenir (Options’a kaydedilmeden önce onay).
+  - “Create CSS Selector” — content script’e mesaj atılır, seçilen element için özgül CSS seçici üretilip kural taslağına eklenir (Options’a kaydedilmeden önce onay).
 - `chrome.runtime.onInstalled` → varsayılan yapı (enabled:true, version:1, rules:[])
 - Mesajlaşma: popup/options/content arasında tek tip mesaj protokolü.
 

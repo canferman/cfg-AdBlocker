@@ -152,7 +152,7 @@ Bir kuralı test ederken `safeMode:true` yaparak kodun enjekte edilmesini engell
 
 ## 🧰 Kullanışlı İpuçları
 
-* **Selector üretici**: Context menüsünden “Bu öğeyi gizle” seçeneğiyle bir CSS seçici taslağı alabilirsiniz.
+* **Selector üretici**: Context menüsünden “Create CSS Selector” seçeneğiyle bir CSS seçici taslağı alabilirsiniz.
 * **SPA’ler**: URL değişince kural otomatik tekrar uygulanır.
 * **Öncelik**: `priority` alanı ile hangi CSS/JS’in önce uygulandığını kontrol edin.
 

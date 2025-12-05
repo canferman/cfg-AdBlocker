@@ -1,10 +1,10 @@
 "use strict";
 
-try { importScripts("storage-migrations.js"); if (self.migrateStorageIfNeeded) { self.migrateStorageIfNeeded(); } } catch (e) { console.warn("[cfg-AdBlocker] migrate loader error", e); }
+try { importScripts("utils.js", "storage-migrations.js"); if (self.migrateStorageIfNeeded) { self.migrateStorageIfNeeded(); } } catch (e) { console.warn("[cfg-AdBlocker] migrate loader error", e); }
 
 // cfg-AdBlocker background (service worker)
 // - onInstalled: varsayılan state
-// - contextMenus: "Bu öğeyi gizle (selector üret)"
+// - contextMenus: "Create CSS Selector"
 // - messaging: Hemen uygula, picker sonucu, log ekleme, jsFiles çalıştırma, safeActions uygulatma
 
 const MENU_PICKER_ID = "cfg-hide-element";
@@ -36,7 +36,7 @@ chrome.runtime.onInstalled.addListener(async () => {
     await chrome.contextMenus.removeAll();
     chrome.contextMenus.create({
       id: MENU_PICKER_ID,
-      title: "Bu öğeyi gizle (selector üret)",
+      title: "Create CSS Selector",
       contexts: ["all"]
     });
   } catch (err) {
@@ -175,10 +175,4 @@ function deriveDomainPattern(url) {
   } catch {
     return "<all_urls>";
   }
-}
-
-function cryptoRandomId() {
-  const arr = new Uint8Array(16);
-  self.crypto.getRandomValues(arr);
-  return Array.from(arr).map((b) => b.toString(16).padStart(2, "0")).join("");
 }

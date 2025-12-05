@@ -1,16 +1,30 @@
 <!doctype html>
 <html>
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>cfg-AdBlocker Ayarlar</title>
   <link rel="stylesheet" href="assets/ui.css">
   <style>
-    textarea { min-height: 90px; }
-    .table { width: 100%; border-collapse: collapse; }
-    .table th, .table td { border-bottom: 1px solid var(--border); padding: 8px; text-align: left; }
+    textarea {
+      min-height: 90px;
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .table th,
+    .table td {
+      border-bottom: 1px solid var(--border);
+      padding: 8px;
+      text-align: left;
+    }
   </style>
 </head>
+
 <body>
   <div class="container">
     <h2 style="margin:8px 0;">cfg-AdBlocker — Ayarlar</h2>
@@ -43,7 +57,13 @@
         </div>
         <table class="table" id="localJsTable">
           <thead>
-            <tr><th>Başlık</th><th>Boyut</th><th>SHA-256</th><th>Son İçerik</th><th>Aksiyon</th></tr>
+            <tr>
+              <th>Başlık</th>
+              <th>Boyut</th>
+              <th>SHA-256</th>
+              <th>Son İçerik</th>
+              <th>Aksiyon</th>
+            </tr>
           </thead>
           <tbody></tbody>
         </table>
@@ -91,6 +111,8 @@
     </div>
   </div>
 
+  <script src="utils.js"></script>
   <script src="options.js"></script>
 </body>
+
 </html>

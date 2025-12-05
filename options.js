@@ -337,26 +337,8 @@ async function saveRules(){
 }
 
 function defaultRule(){
-  return { id: cryptoId(), name: "Yeni Kural", enabled: true, pattern: "*://*/*", excludePatterns: [], scope: "DOMAIN", priority: 100, runAt: "document_start", world: "ISOLATED", css: "", cssFiles: [], js: "", jsFiles: [], localJs: [], safeActions: {}, safeMode: false, notes: "" };
+  return { id: cryptoRandomId(), name: "Yeni Kural", enabled: true, pattern: "*://*/*", excludePatterns: [], scope: "DOMAIN", priority: 100, runAt: "document_start", world: "ISOLATED", css: "", cssFiles: [], js: "", jsFiles: [], localJs: [], safeActions: {}, safeMode: false, notes: "" };
 }
 
 function splitCsv(s){ return (s||"").split(",").map(x=>x.trim()).filter(Boolean); }
 function opt(v, cur){ return `<option value="${v}" ${v===cur?"selected":""}>${v}</option>`; }
-function escapeHtml(s){ return (s||"").replace(/[&<>]/g, c=> ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
-function escapeAttr(s){ return (s||"").replace(/"/g, '&quot;'); }
-function escapeText(s){ return (s||"").replace(/</g, '&lt;'); }
-function cryptoId(){ const a=new Uint8Array(8); crypto.getRandomValues(a); return Array.from(a).map(b=>b.toString(16).padStart(2,'0')).join(''); }
-
-function wildcardToRegExp(pattern){
-  const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp("^" + escaped.replace(/\*/g, ".*") + "$");
-}
-function urlMatches(url, pattern){ try { return wildcardToRegExp(pattern).test(url); } catch { return false; } }
-function shouldSkipByExclude(url, excludePatterns){ if(!Array.isArray(excludePatterns)) return false; return excludePatterns.some(p=> urlMatches(url,p)); }
-
-async function sha256base16(text){
-  const enc = new TextEncoder().encode(text);
-  const buf = await crypto.subtle.digest('SHA-256', enc);
-  const arr = Array.from(new Uint8Array(buf));
-  return arr.map(b=> b.toString(16).padStart(2,'0')).join('');
-}
